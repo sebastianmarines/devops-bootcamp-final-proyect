@@ -1,0 +1,11 @@
+services:
+  host:
+    build:
+      context: .
+      dockerfile: host.Dockerfile
+    logging:
+      driver: "none"
+  control:
+    build:
+      context: .
+      dockerfile: control.Dockerfile
