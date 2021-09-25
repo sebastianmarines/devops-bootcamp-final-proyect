@@ -1,0 +1,6 @@
+---
+- name: Ansible hello world!
+  hosts: all
+  tasks:
+    - name: Hello world!
+      shell: echo "Hello world"
