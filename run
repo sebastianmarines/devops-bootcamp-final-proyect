@@ -1,2 +1,2 @@
 #!/bin/bash
-docker-compose -f ./centos/docker-compose.yml up --abort-on-container-exit --always-recreate-deps control
+docker-compose -f ./centos/docker-compose.yml up --always-recreate-deps control
