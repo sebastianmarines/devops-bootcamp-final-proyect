@@ -25,3 +25,7 @@
       authorized_key:
         user: admin
         key: "{{ lookup('file', './id_rsa.pub') }}"
+    - name: "Add ssh key for dev user"
+      authorized_key:
+        user: dev
+        key: "{{ lookup('file', './id_rsa.pub') }}"
