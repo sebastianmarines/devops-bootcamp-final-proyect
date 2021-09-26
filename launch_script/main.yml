@@ -48,6 +48,26 @@
           - php
           - php-mysqlnd
         state: present
+    - name: Install php-json extension
+      dnf:
+        name: php-json
+        state: present
+    # LEMP services activation
+    - name: "Activate php-fpm"
+      service:
+        state: started
+        enabled: yes
+        name: php-fpm
+    - name: "Activate NGINX"
+      service:
+        state: started
+        enabled: yes
+        name: nginx.service
+    - name: "Activate MySQL"
+      service:
+        state: started
+        enabled: yes
+        name: mysqld
     # Configure PHP-FPM
     - name: "Set php-fpm group"
       lineinfile:
@@ -112,6 +132,11 @@
         dest: "/var/www/"
         remote_src: yes
         creates: "/var/www/wordpress"
+    - name: Set up wp-config
+      template:
+        src: "files/wp-config.php.j2"
+        dest: "/var/www/wordpress/wp-config.php"
+        mode: "600"
     - name: Set ownership
       file:
         path: "/var/www/wordpress"
@@ -119,19 +144,20 @@
         recurse: yes
         owner: nginx
         group: nginx
+    - name: Set permissions for directories
+      shell: "/usr/bin/find /var/www/wordpress/ -type d -exec chmod 750 {} \\;"
+    - name: Set permissions for files
+      shell: "/usr/bin/find /var/www/wordpress/ -type f -exec chmod 640 {} \\;"
     # LEMP services activation
-    - name: "Activate php-fpm"
+    - name: "Restart php-fpm"
       service:
-        state: started
-        enabled: yes
+        state: restarted
         name: php-fpm
-    - name: "Activate NGINX"
+    - name: "Restart NGINX"
       service:
-        state: started
-        enabled: yes
+        state: restarted
         name: nginx.service
-    - name: "Activate MySQL"
+    - name: "Restart MySQL"
       service:
-        state: started
-        enabled: yes
+        state: restarted
         name: mysqld
