@@ -99,16 +99,26 @@
       mysql_db:
         name: "{{ mysql_db }}"
         state: present
-        # login_user: root
-        # login_password: "{{ mysql_root_password }}"
     - name: Create MySQL user for WordPress
       mysql_user:
         name: "{{ mysql_user }}"
         password: "{{ mysql_password }}"
         priv: "{{ mysql_db }}.*:ALL"
         state: present
-        # login_user: root
-        # login_password: "{{ mysql_root_password }}"
+    # Wordpress
+    - name: Download and unpack latest WordPress
+      unarchive:
+        src: https://wordpress.org/latest.tar.gz
+        dest: "/var/www/"
+        remote_src: yes
+        creates: "/var/www/wordpress"
+    - name: Set ownership
+      file:
+        path: "/var/www/wordpress"
+        state: directory
+        recurse: yes
+        owner: nginx
+        group: nginx
     # LEMP services activation
     - name: "Activate php-fpm"
       service:
