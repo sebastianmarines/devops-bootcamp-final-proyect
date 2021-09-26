@@ -2,5 +2,16 @@
 - name: Ansible hello world!
   hosts: all
   tasks:
-    - name: Hello world!
-      shell: echo "Hello world"
+    - name: "Ensure wheel group exists"
+      group:
+        name: wheel
+        state: present
+    - name: "Create admin user"
+      ansible.builtin.user:
+        name: admin
+        group: wheel
+        home: /home/admin
+    - name: "Create dev user"
+      ansible.builtin.user:
+        name: dev
+        home: /home/dev
