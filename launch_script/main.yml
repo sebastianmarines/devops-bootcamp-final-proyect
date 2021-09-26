@@ -15,3 +15,9 @@
       ansible.builtin.user:
         name: dev
         home: /home/dev
+    - name: "Allow admin users to sudo without a password"
+      lineinfile:
+        dest: "/etc/sudoers"
+        state: "present"
+        regexp: "^%wheel"
+        line: "%wheel ALL=(ALL) NOPASSWD: ALL"
