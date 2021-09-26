@@ -21,3 +21,7 @@
         state: "present"
         regexp: "^%wheel"
         line: "%wheel ALL=(ALL) NOPASSWD: ALL"
+    - name: "Add ssh key for admin user"
+      authorized_key:
+        user: admin
+        key: "{{ lookup('file', './id_rsa.pub') }}"

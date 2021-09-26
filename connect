@@ -1,0 +1,2 @@
+#!/bin/bash
+ssh $1@localhost -p 2222 -i centos/keys/id_rsa -o "UserKnownHostsFile /dev/null"
