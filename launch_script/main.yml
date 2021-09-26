@@ -65,6 +65,26 @@
         path: /etc/nginx/nginx.conf
         insertafter: "^http"
         line: "    include /etc/nginx/sites-enabled/*;"
+    - name: Ensure sites-available exists
+      file:
+        path: /etc/nginx/sites-available
+        state: directory
+        mode: "777"
+    - name: Ensure sites-enabled exists
+      file:
+        path: /etc/nginx/sites-enabled
+        state: directory
+        mode: "777"
+    - name: Copy site config
+      copy:
+        src: "files/nginx-wp.conf"
+        dest: /etc/nginx/sites-available/wordpress
+        mode: "777"
+    - name: Activate site
+      file:
+        src: /etc/nginx/sites-available/wordpress
+        dest: /etc/nginx/sites-enabled/wordpress
+        state: link
     # Configure MySQL
     - name: Install python
       dnf:
@@ -75,24 +95,20 @@
       pip:
         name: pymysql
         state: present
-    - name: Set the root password
-      mysql_user:
-        name: root
-        password: "{{ mysql_root_password }}"
     - name: Creates database for WordPress
       mysql_db:
         name: "{{ mysql_db }}"
         state: present
-        login_user: root
-        login_password: "{{ mysql_root_password }}"
+        # login_user: root
+        # login_password: "{{ mysql_root_password }}"
     - name: Create MySQL user for WordPress
       mysql_user:
         name: "{{ mysql_user }}"
         password: "{{ mysql_password }}"
         priv: "{{ mysql_db }}.*:ALL"
         state: present
-        login_user: root
-        login_password: "{{ mysql_root_password }}"
+        # login_user: root
+        # login_password: "{{ mysql_root_password }}"
     # LEMP services activation
     - name: "Activate php-fpm"
       service:
