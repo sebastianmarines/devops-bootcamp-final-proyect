@@ -57,6 +57,12 @@
         path: /etc/php-fpm.d/www.conf
         regexp: "^user"
         line: "user = nginx"
+    # Configure NGINX
+    - name: "Include sites in nginx config"
+      lineinfile:
+        path: /etc/nginx/nginx.conf
+        insertafter: "^http"
+        line: "    include /etc/nginx/sites-enabled/*;"
     # LEMP services activation
     - name: "Activate php-fpm"
       service:
