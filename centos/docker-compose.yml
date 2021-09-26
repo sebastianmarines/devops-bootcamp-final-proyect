@@ -5,6 +5,9 @@ services:
       dockerfile: host.Dockerfile
     logging:
       driver: "none"
+    ports:
+      - "2222:22"
+      - "8080:80"
   control:
     build:
       context: .
