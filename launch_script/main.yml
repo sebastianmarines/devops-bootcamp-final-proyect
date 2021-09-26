@@ -1,5 +1,5 @@
 ---
-- name: Ansible hello world!
+- name: Wordpress auto-installation
   hosts: all
   vars_files:
     - vars/default.yml
@@ -105,6 +105,10 @@
         src: /etc/nginx/sites-available/wordpress
         dest: /etc/nginx/sites-enabled/wordpress
         state: link
+    - name: Delete nginx default website
+      file:
+        state: absent
+        path: /usr/share/nginx/html/
     # Configure MySQL
     - name: Install python
       dnf:
