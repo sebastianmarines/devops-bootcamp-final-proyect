@@ -80,31 +80,11 @@
         regexp: "^user"
         line: "user = nginx"
     # Configure NGINX
-    - name: "Include sites in nginx config"
-      lineinfile:
-        path: /etc/nginx/nginx.conf
-        insertafter: "^http"
-        line: "    include /etc/nginx/sites-enabled/*;"
-    - name: Ensure sites-available exists
-      file:
-        path: /etc/nginx/sites-available
-        state: directory
-        mode: "777"
-    - name: Ensure sites-enabled exists
-      file:
-        path: /etc/nginx/sites-enabled
-        state: directory
-        mode: "777"
-    - name: Copy site config
+    - name: Copy Nginx config
       copy:
-        src: "files/nginx-wp.conf"
-        dest: /etc/nginx/sites-available/wordpress
-        mode: "777"
-    - name: Activate site
-      file:
-        src: /etc/nginx/sites-available/wordpress
-        dest: /etc/nginx/sites-enabled/wordpress
-        state: link
+        src: "files/nginx.conf"
+        dest: /etc/nginx/nginx.conf
+        mode: "770"
     - name: Delete nginx default website
       file:
         state: absent
