@@ -1,0 +1,4 @@
+mysql_root_password: "your-root-password"
+mysql_db: "wpdb"
+mysql_user: "wpuser"
+mysql_password: "password"

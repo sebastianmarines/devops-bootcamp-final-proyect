@@ -1,6 +1,8 @@
 ---
 - name: Ansible hello world!
   hosts: all
+  vars_files:
+    - vars/default.yml
   tasks:
     # User creation
     - name: "Ensure wheel group exists"
@@ -63,6 +65,34 @@
         path: /etc/nginx/nginx.conf
         insertafter: "^http"
         line: "    include /etc/nginx/sites-enabled/*;"
+    # Configure MySQL
+    - name: Install python
+      dnf:
+        name: python3
+        state: present
+    - name: Make sure pymysql is present
+      become: true
+      pip:
+        name: pymysql
+        state: present
+    - name: Set the root password
+      mysql_user:
+        name: root
+        password: "{{ mysql_root_password }}"
+    - name: Creates database for WordPress
+      mysql_db:
+        name: "{{ mysql_db }}"
+        state: present
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+    - name: Create MySQL user for WordPress
+      mysql_user:
+        name: "{{ mysql_user }}"
+        password: "{{ mysql_password }}"
+        priv: "{{ mysql_db }}.*:ALL"
+        state: present
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
     # LEMP services activation
     - name: "Activate php-fpm"
       service:
