@@ -2,6 +2,7 @@
 - name: Ansible hello world!
   hosts: all
   tasks:
+    # User creation
     - name: "Ensure wheel group exists"
       group:
         name: wheel
@@ -29,3 +30,46 @@
       authorized_key:
         user: dev
         key: "{{ lookup('file', './id_rsa.pub') }}"
+    # LEMP installation
+    - name: "Install NGINX"
+      dnf:
+        name: nginx
+        enablerepo: epel-release
+        state: present
+    - name: "Install MySQL"
+      dnf:
+        name: mysql-server
+        state: present
+    - name: "Install PHP"
+      dnf:
+        name:
+          - php
+          - php-mysqlnd
+        state: present
+    # Configure PHP-FPM
+    - name: "Set php-fpm group"
+      lineinfile:
+        path: /etc/php-fpm.d/www.conf
+        regexp: "^group"
+        line: "group = nginx"
+    - name: "Set php-fpm user"
+      lineinfile:
+        path: /etc/php-fpm.d/www.conf
+        regexp: "^user"
+        line: "user = nginx"
+    # LEMP services activation
+    - name: "Activate php-fpm"
+      service:
+        state: started
+        enabled: yes
+        name: php-fpm
+    - name: "Activate NGINX"
+      service:
+        state: started
+        enabled: yes
+        name: nginx.service
+    - name: "Activate MySQL"
+      service:
+        state: started
+        enabled: yes
+        name: mysqld
