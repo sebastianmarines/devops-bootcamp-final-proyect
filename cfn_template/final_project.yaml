@@ -172,3 +172,17 @@ Resources:
       FromPort: 0
       ToPort: 0
       CidrIp: 0.0.0.0/0
+
+  Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: "ami-0c9ff37f7a65a36a2"
+      InstanceType: "t3.micro"
+      SecurityGroupIds:
+        - !GetAtt SSHSecurityGroup.GroupId
+        - !GetAtt WebSecurityGroup.GroupId
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 10
+      SubnetId: !Ref PublicSubnet1
