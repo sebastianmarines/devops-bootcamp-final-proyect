@@ -64,3 +64,24 @@ Resources:
     Properties:
       RouteTableId: !Ref PublicRouteTable
       SubnetId: !Ref PublicSubnet2
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs  '' ]
+      CidrBlock: 10.0.2.0/26
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: Sebastian-cfn Private Subnet (AZ1)
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs  '' ]
+      CidrBlock: 10.0.3.0/26
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: Sebastian-cfn Private Subnet (AZ2)
