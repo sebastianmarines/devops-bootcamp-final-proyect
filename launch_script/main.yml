@@ -4,6 +4,10 @@
   vars_files:
     - vars/default.yml
   tasks:
+    - name: "Install security patches"
+      dnf:
+        security: yes
+        state: latest
     # User creation
     - name: "Ensure wheel group exists"
       group:
