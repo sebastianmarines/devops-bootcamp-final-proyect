@@ -136,6 +136,12 @@
       shell: "/usr/bin/find /var/www/wordpress/ -type d -exec chmod 750 {} \\;"
     - name: Set permissions for files
       shell: "/usr/bin/find /var/www/wordpress/ -type f -exec chmod 640 {} \\;"
+    # Secure LEMP
+    - name: Deactivate PHP functions
+      lineinfile:
+        path: /etc/php.ini
+        regexp: "^disable_functions"
+        line: "disable_functions =exec,eval,phpinfo,passthru,shell_exec,system,proc_open,popen,curl_exec,curl_multi_exec,parse_ini_file,show_source"
     # LEMP services activation
     - name: "Restart php-fpm"
       service:
