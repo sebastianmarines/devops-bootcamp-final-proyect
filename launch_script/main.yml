@@ -142,6 +142,26 @@
         path: /etc/php.ini
         regexp: "^disable_functions"
         line: "disable_functions =exec,eval,phpinfo,passthru,shell_exec,system,proc_open,popen,curl_exec,curl_multi_exec,parse_ini_file,show_source"
+    - name: Install UFW
+      dnf:
+        name: ufw
+        enablerepo: epel-release
+        state: present
+    - name: Allow SSH
+      ufw:
+        proto: tcp
+        port: "22"
+        rule: allow
+    - name: Allow port 80
+      ufw:
+        proto: tcp
+        port: "80"
+        rule: allow
+    - name: Block all connections
+      ufw:
+        state: enabled
+        direction: incoming
+        policy: deny
     # LEMP services activation
     - name: "Restart php-fpm"
       service:
