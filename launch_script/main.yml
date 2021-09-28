@@ -153,7 +153,7 @@
     - name: Allow SSH
       ufw:
         proto: tcp
-        port: "22"
+        port: "ssh"
         rule: allow
     - name: Allow port 80
       ufw:
