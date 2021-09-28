@@ -48,7 +48,6 @@
     - name: "Install NGINX"
       dnf:
         name: nginx
-        enablerepo: epel-release
         state: present
     - name: "Install MySQL"
       dnf:
@@ -150,6 +149,9 @@
         path: /etc/php.ini
         regexp: "^disable_functions"
         line: "disable_functions =exec,eval,phpinfo,passthru,shell_exec,system,proc_open,popen,curl_exec,curl_multi_exec,parse_ini_file,show_source"
+    - name: Reset UFW
+      ufw:
+        state: reset
     - name: Allow SSH
       ufw:
         proto: tcp
