@@ -8,6 +8,14 @@
       dnf:
         security: yes
         state: latest
+    - name: Enable EPEL Repository on CentOS 8
+      dnf:
+        name: epel-release
+        state: latest
+    - name: Install UFW
+      dnf:
+        name: ufw
+        state: present
     # User creation
     - name: "Ensure wheel group exists"
       group:
@@ -142,11 +150,6 @@
         path: /etc/php.ini
         regexp: "^disable_functions"
         line: "disable_functions =exec,eval,phpinfo,passthru,shell_exec,system,proc_open,popen,curl_exec,curl_multi_exec,parse_ini_file,show_source"
-    - name: Install UFW
-      dnf:
-        name: ufw
-        enablerepo: epel-release
-        state: present
     - name: Allow SSH
       ufw:
         proto: tcp
