@@ -178,6 +178,7 @@ Resources:
     Properties:
       ImageId: "ami-0c9ff37f7a65a36a2"
       InstanceType: "t3.micro"
+      KeyName: "Sebastian-n"
       SecurityGroupIds:
         - !GetAtt SSHSecurityGroup.GroupId
         - !GetAtt WebSecurityGroup.GroupId
@@ -186,3 +187,9 @@ Resources:
           Ebs:
             VolumeSize: 10
       SubnetId: !Ref PublicSubnet1
+
+  MediaBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: "sebastian-media"
+      AccessControl: PublicRead
