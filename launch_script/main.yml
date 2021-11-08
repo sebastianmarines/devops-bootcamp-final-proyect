@@ -1,5 +1,5 @@
 ---
-- name: Wordpress auto-installation
+- name: LEMP auto-installation
   hosts: all
   become: yes
   vars_files:
@@ -13,46 +13,10 @@
       dnf:
         name: epel-release
         state: latest
-    - name: Install UFW
-      dnf:
-        name: ufw
-        state: present
-    # User creation
-    - name: "Ensure wheel group exists"
-      group:
-        name: wheel
-        state: present
-    - name: "Create admin user"
-      ansible.builtin.user:
-        name: admin
-        group: wheel
-        home: /home/admin
-    - name: "Create dev user"
-      ansible.builtin.user:
-        name: dev
-        home: /home/dev
-    - name: "Allow admin users to sudo without a password"
-      lineinfile:
-        dest: "/etc/sudoers"
-        state: "present"
-        regexp: "^%wheel"
-        line: "%wheel ALL=(ALL) NOPASSWD: ALL"
-    - name: "Add ssh key for admin user"
-      authorized_key:
-        user: admin
-        key: "{{ lookup('file', './id_rsa.pub') }}"
-    - name: "Add ssh key for dev user"
-      authorized_key:
-        user: dev
-        key: "{{ lookup('file', './id_rsa.pub') }}"
     # LEMP installation
     - name: "Install NGINX"
       dnf:
         name: nginx
-        state: present
-    - name: "Install MySQL"
-      dnf:
-        name: mysql-server
         state: present
     - name: "Install PHP"
       dnf:
@@ -75,11 +39,6 @@
         state: started
         enabled: yes
         name: nginx.service
-    - name: "Activate MySQL"
-      service:
-        state: started
-        enabled: yes
-        name: mysqld
     # Configure PHP-FPM
     - name: "Set php-fpm group"
       lineinfile:
@@ -101,85 +60,12 @@
       file:
         state: absent
         path: /usr/share/nginx/html/
-    # Configure MySQL
-    - name: Install python
-      dnf:
-        name: python3
-        state: present
-    - name: Make sure pymysql is present
-      become: true
-      pip:
-        name: pymysql
-        state: present
-    - name: Creates database for WordPress
-      mysql_db:
-        name: "{{ mysql_db }}"
-        state: present
-    - name: Create MySQL user for WordPress
-      mysql_user:
-        name: "{{ mysql_user }}"
-        password: "{{ mysql_password }}"
-        priv: "{{ mysql_db }}.*:ALL"
-        state: present
-    # Wordpress
-    - name: Download WP-CLI
-      get_url:
-        url: "https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar"
-        dest: /usr/local/bin/wp
-        mode: 0755
-    - name: Download Wordpress
-      command: "/usr/local/bin/wp core download --version=latest --path=/var/www/wordpress --locale=es_MX --allow-root"
-      args:
-        creates: /var/www/wordpress
-    - name: Set up wp-config
-      template:
-        src: "files/wp-config.php.j2"
-        dest: "/var/www/wordpress/wp-config.php"
-        mode: "600"
-    - name: Check if wordpress is installed
-      command: "/usr/local/bin/wp core is-installed --allow-root"
-      register: wp_installed
-      ignore_errors: true
-    - name: Install Wordpress
-      command: "/usr/local/bin/wp core install --url={{ wp_url }} --title={{ wp_title }} --admin_user={{ wp_admin_user }} --admin_password={{ wp_admin_password }} --admin_email={{ wp_admin_email }} --path=/var/www/wordpress --allow-root"
-      when: wp_installed.stdout != 1
-    - name: Install amazon-s3-and-cloudfront plugin
-      command: "/usr/local/bin/wp plugin install amazon-s3-and-cloudfront --path=/var/www/wordpress --activate --allow-root"
-    - name: Set ownership
-      file:
-        path: "/var/www/wordpress"
-        state: directory
-        recurse: yes
-        owner: nginx
-        group: nginx
-    - name: Set permissions for directories
-      shell: "/usr/bin/find /var/www/wordpress/ -type d -exec chmod 750 {} \\;"
-    - name: Set permissions for files
-      shell: "/usr/bin/find /var/www/wordpress/ -type f -exec chmod 640 {} \\;"
     # Secure LEMP
     - name: Deactivate PHP functions
       lineinfile:
         path: /etc/php.ini
         regexp: "^disable_functions"
         line: "disable_functions =exec,eval,phpinfo,passthru,shell_exec,system,proc_open,popen,curl_exec,curl_multi_exec,parse_ini_file,show_source"
-    - name: Reset UFW
-      ufw:
-        state: reset
-    - name: Allow SSH
-      ufw:
-        proto: tcp
-        port: "ssh"
-        rule: allow
-    - name: Allow port 80
-      ufw:
-        proto: tcp
-        port: "80"
-        rule: allow
-    - name: Block all connections
-      ufw:
-        state: enabled
-        direction: incoming
-        policy: deny
     # LEMP services activation
     - name: "Restart php-fpm"
       service:
@@ -189,7 +75,3 @@
       service:
         state: restarted
         name: nginx.service
-    - name: "Restart MySQL"
-      service:
-        state: restarted
-        name: mysqld
