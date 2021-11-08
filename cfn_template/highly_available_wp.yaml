@@ -345,7 +345,7 @@ Resources:
                 state: started
                 ensure: present
     Properties:
-      ImageId: "ami-0259673a688575d96"
+      ImageId: "ami-09bfc302126c7e75b"
       InstanceType: t3.small
       KeyName: !Ref KeyName
       SecurityGroups:
