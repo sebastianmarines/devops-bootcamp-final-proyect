@@ -4,6 +4,15 @@ Description: |
   It uses a load balancer to distribute traffic to the instances.
   It uses an Auto Scaling group to scale up and down.
 
+Parameters:
+  RDSMasterUsername:
+    Type: String
+    Description: The master username for the RDS instance
+  RDSMasterPassword:
+    Type: String
+    Description: The master user password for the RDS instance
+    NoEcho: true
+
 Resources:
   # Network
   VPC:
@@ -231,3 +240,24 @@ Resources:
       SubnetId: !Ref PublicSubnetAZ3
       SecurityGroups:
         - !Ref EFSSecurityGroup
+
+  # RDS
+  RDS:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceClass: db.t2.micro
+      Engine: MySQL
+      MasterUsername: !Ref RDSMasterUsername
+      MasterUserPassword: !Ref RDSMasterPassword
+      AllocatedStorage: "5"
+      VPCSecurityGroups:
+        - !Ref RDSSecurityGroup
+      PubliclyAccessible: false
+      DBSubnetGroupName: !Ref RDSSubnetGroup
+  RDSSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: RDS Subnet Group
+      SubnetIds:
+        - !Ref PrivateSubnetAZ1
+        - !Ref PrivateSubnetAZ2
