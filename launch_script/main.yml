@@ -122,17 +122,29 @@
         priv: "{{ mysql_db }}.*:ALL"
         state: present
     # Wordpress
-    - name: Download and unpack latest WordPress
-      unarchive:
-        src: https://wordpress.org/latest.tar.gz
-        dest: "/var/www/"
-        remote_src: yes
-        creates: "/var/www/wordpress"
+    - name: Download WP-CLI
+      get_url:
+        url: "https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar"
+        dest: /usr/local/bin/wp
+        mode: 0755
+    - name: Download Wordpress
+      command: "/usr/local/bin/wp core download --version=latest --path=/var/www/wordpress --locale=es_MX --allow-root"
+      args:
+        creates: /var/www/wordpress
     - name: Set up wp-config
       template:
         src: "files/wp-config.php.j2"
         dest: "/var/www/wordpress/wp-config.php"
         mode: "600"
+    - name: Check if wordpress is installed
+      command: "/usr/local/bin/wp core is-installed --allow-root"
+      register: wp_installed
+      ignore_errors: true
+    - name: Install Wordpress
+      command: "/usr/local/bin/wp core install --url={{ wp_url }} --title={{ wp_title }} --admin_user={{ wp_admin_user }} --admin_password={{ wp_admin_password }} --admin_email={{ wp_admin_email }} --path=/var/www/wordpress --allow-root"
+      when: wp_installed.stdout != 1
+    - name: Install amazon-s3-and-cloudfront plugin
+      command: "/usr/local/bin/wp plugin install amazon-s3-and-cloudfront --path=/var/www/wordpress --activate --allow-root"
     - name: Set ownership
       file:
         path: "/var/www/wordpress"
