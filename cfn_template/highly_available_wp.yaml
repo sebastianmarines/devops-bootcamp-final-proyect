@@ -10,6 +10,8 @@ Resources:
     Type: AWS::EC2::VPC
     Properties:
       CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
   ## IGW
   InternetGateway:
     Type: AWS::EC2::InternetGateway
@@ -59,6 +61,7 @@ Resources:
       CidrBlock: 10.0.0.0/25
       VpcId: !Ref VPC
       AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
   PublicSubnetAZ1RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
@@ -71,6 +74,7 @@ Resources:
       CidrBlock: 10.0.1.0/25
       VpcId: !Ref VPC
       AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
   PublicSubnetAZ2RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
@@ -83,6 +87,7 @@ Resources:
       CidrBlock: 10.0.2.0/25
       VpcId: !Ref VPC
       AvailabilityZone: !Select [2, !GetAZs '']
+      MapPublicIpOnLaunch: true
   PublicSubnetAZ3RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
@@ -117,7 +122,7 @@ Resources:
       SubnetId: !Ref PrivateSubnetAZ2
 
   # Security Groups
-  ## Web
+  ## Web Security Group
   WebSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -149,7 +154,7 @@ Resources:
       FromPort: 0
       ToPort: 0
       CidrIp: 0.0.0.0/0
-  ## SSH
+  ## SSH Security Group
   SSHSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -165,7 +170,7 @@ Resources:
       FromPort: 22
       ToPort: 22
       CidrIp: 0.0.0.0/0
-  ## EFS
+  ## EFS Security Group
   EFSSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -181,7 +186,7 @@ Resources:
       FromPort: 2049
       ToPort: 2049
       SourceSecurityGroupId: !Ref WebSecurityGroup
-  ## RDS
+  ## RDS Security Group
   RDSSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -197,3 +202,32 @@ Resources:
       FromPort: 3306
       ToPort: 3306
       SourceSecurityGroupId: !Ref WebSecurityGroup
+
+  # EFS
+  ElasticFileSystem:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      Encrypted: false
+      PerformanceMode: generalPurpose
+      ThroughputMode: bursting
+  ElasticFileSystemMountTargetAZ1:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref ElasticFileSystem
+      SubnetId: !Ref PublicSubnetAZ1
+      SecurityGroups:
+        - !Ref EFSSecurityGroup
+  ElasticFileSystemMountTargetAZ2:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref ElasticFileSystem
+      SubnetId: !Ref PublicSubnetAZ2
+      SecurityGroups:
+        - !Ref EFSSecurityGroup
+  ElasticFileSystemMountTargetAZ3:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref ElasticFileSystem
+      SubnetId: !Ref PublicSubnetAZ3
+      SecurityGroups:
+        - !Ref EFSSecurityGroup
