@@ -67,6 +67,7 @@
     # Configure SELINUX
     - name: Configure SELINUX
       selinux:
+        policy: targeted
         state: permissive
     # Secure LEMP
     - name: Deactivate PHP functions
@@ -83,3 +84,14 @@
       service:
         state: restarted
         name: nginx.service
+    # Create wordpress directory
+    - name: Create wordpress directory
+      file:
+        state: directory
+        path: /var/www/wordpress
+    # Download WP-CLI
+    - name: Download wp-cli
+      get_url:
+        url: https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+        dest: /usr/local/bin/wp
+        mode: 0755
