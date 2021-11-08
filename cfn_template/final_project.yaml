@@ -1,6 +1,14 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: DevOps Bootcamp final project
 
+Parameters:
+  DatabasePassword:
+    NoEcho: true
+    Description: Database admin password
+    Type: String
+    MinLength: 1
+    MaxLength: 40
+
 Resources:
   VPC:
     Type: AWS::EC2::VPC
@@ -173,6 +181,30 @@ Resources:
       ToPort: 0
       CidrIp: 0.0.0.0/0
 
+  RDSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: "RDS"
+      GroupDescription: "RDS SG"
+      VpcId: !Ref VPC
+  RDSSecurityGroupIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref RDSSecurityGroup
+      IpProtocol: tcp
+      FromPort: 3306
+      ToPort: 3306
+      SourceSecurityGroupId: !Ref WebSecurityGroup
+  RDSSecurityGroupEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref RDSSecurityGroup
+      IpProtocol: "-1"
+      FromPort: 0
+      ToPort: 0
+      DestinationSecurityGroupId: !Ref WebSecurityGroup
+
+
   Instance:
     Type: AWS::EC2::Instance
     Properties:
@@ -193,3 +225,23 @@ Resources:
     Properties:
       BucketName: "sebastian-media"
       AccessControl: PublicRead
+
+  DatabaseSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: "Database Subnet Group"
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+  Database:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: "5"
+      DBInstanceClass: db.t2.micro
+      Engine: MySQL
+      MasterUsername: admin
+      MasterUserPassword: !Ref DatabasePassword
+      VPCSecurityGroups:
+        - !Ref RDSSecurityGroup
+      PubliclyAccessible: false
+      DBSubnetGroupName: !Ref DatabaseSubnetGroup

@@ -1,0 +1,473 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: Wordpress on EC2
+
+Parameters:
+  DatabaseMasterUsername:
+    AllowedPattern: ^([a-zA-Z0-9]*)$
+    Description: The Amazon RDS master username.
+    ConstraintDescription: Must contain only alphanumeric characters (minimum 8; maximum 16).
+    MaxLength: 16
+    MinLength: 3
+    Type: String
+  DatabaseMasterPassword:
+    AllowedPattern: ^([a-zA-Z0-9`~!#$%^&*()_+,\\-])*$
+    ConstraintDescription: Must be letters (upper or lower), numbers, spaces, and these special characters `~!#$%^&*()_+,-
+    Description: The Amazon RDS master password. Letters, numbers, spaces, and these special characters `~!#$%^&*()_+,-
+    MaxLength: 41
+    MinLength: 8
+    NoEcho: true
+    Type: String
+  SshSourceGroup:
+    Description: The security group that you want to allow SSH access to web instances. This should be the security group of your SSH bastion host, if you have one
+    Type: AWS::EC2::SecurityGroup::Id
+  WebSubnets:
+    Description: A list of subnets to use when launching EC2 web instances
+    Type: List<AWS::EC2::Subnet::Id>
+  EfsSubnets:
+    Description: A list of subnets to use for EFS mount points. These should be in the same AZs as your web subnets
+    Type: List<AWS::EC2::Subnet::Id>
+  ElasticacheSubnets:
+    Description: A list of subnets to use for Elasticache node
+    Type: List<AWS::EC2::Subnet::Id>
+  DataSubnets:
+    Description: A list of subnets to use when launching Aurora MySQL instances
+    Type: List<AWS::EC2::Subnet::Id>
+  Vpc:
+    AllowedPattern: ^(vpc-)([a-z0-9]{8}|[a-z0-9]{17})$
+    Description: The Vpc Id of an existing VPC to launch this stack in.
+    Type: AWS::EC2::VPC::Id
+  PublicAlbSecurityGroup:
+    Description: The Security Group for the ALB you're adding the target to, to give access to instances
+    Type: AWS::EC2::SecurityGroup::Id
+  WPAdminEmail:
+    AllowedPattern: ^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$
+    Description: The admin email address for WordPress and AWS notifications.
+    Type: String
+  WPAdminPassword:
+    AllowedPattern: ^([a-zA-Z0-9`~!#$%^&*()_+,\\-])*$
+    ConstraintDescription: Must be letters (upper or lower), numbers, spaces, and these special characters `~!#$%^&*()_+,-
+    Description: The WordPress admin password. Letters, numbers, spaces, and these special characters `~!#$%^&*()_+,-
+    Type: String
+    NoEcho: true
+  WPAdminUsername:
+    AllowedPattern: ^([a-zA-Z0-9])([a-zA-Z0-9_-])*([a-zA-Z0-9])$
+    Description: The WordPress admin username.
+    Type: String
+  WPVersion:
+    AllowedValues:
+      - latest
+      - nightly
+      - 4.5
+      - 4.6
+      - 4.7
+      - 4.8
+      - 4.9
+    Default: latest
+    Type: String
+  WPDirectory:
+    Description: The path under which you want WordPress hosted. For example /blog (trailing slash not required)
+    AllowedPattern: ^/([a-zA-Z0-9.~_+-])*$
+    Default: /
+    Type: String
+  EC2KeyName:
+    AllowedPattern: ^([a-zA-Z0-9 @.`~!#$%^&*()_+,\\-])*$
+    ConstraintDescription: Must be letters (upper or lower), numbers, and special characters.
+    Description: Name of an EC2 KeyPair. Your Web instances will launch with this KeyPair.
+    Type: AWS::EC2::KeyPair::KeyName
+
+Resources:
+  ElasticFileSystem:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      Encrypted: true
+      PerformanceMode: generalPurpose
+      ThroughputMode: bursting
+  ElasticFileSystemMountTarget0:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref ElasticFileSystem
+      SecurityGroups:
+      - !Ref EfsSecurityGroup
+      SubnetId: !Select [ 0, !Ref EfsSubnets ]
+  ElasticFileSystemMountTarget1:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref ElasticFileSystem
+      SecurityGroups:
+      - !Ref EfsSecurityGroup
+      SubnetId: !Select [ 1, !Ref EfsSubnets ]
+  ElasticFileSystemMountTarget2:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref ElasticFileSystem
+      SecurityGroups:
+      - !Ref EfsSecurityGroup
+      SubnetId: !Select [ 2, !Ref EfsSubnets ]
+
+  ElastiCacheCluster:
+    Type: AWS::ElastiCache::CacheCluster
+    Properties:
+      AZMode: cross-az
+      CacheNodeType: cache.t3.micro
+      CacheSubnetGroupName: !Ref ElastiCacheSubnetGroup
+      Engine: memcached
+      NumCacheNodes: 2
+      VpcSecurityGroupIds:
+      - !Ref ElastiCacheSecurityGroup
+  ElastiCacheSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      Description: ElastiCache Subnet Group for WordPress
+      SubnetIds: !Ref ElasticacheSubnets
+
+  PublicAlbTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: !Sub ${WPDirectory}/
+      HealthCheckTimeoutSeconds: 5
+      Matcher:
+        HttpCode: '200,301'
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 5
+
+      VpcId: !Ref Vpc
+
+
+
+  DatabaseCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      BackupRetentionPeriod: 30
+      DatabaseName: blog
+      DBSubnetGroupName: !Ref DataSubnetGroup
+      Engine: aurora
+      MasterUsername: !Ref DatabaseMasterUsername
+      MasterUserPassword: !Ref DatabaseMasterPassword
+      Port: 3306
+      StorageEncrypted: true
+      VpcSecurityGroupIds:
+      - !Ref DatabaseSecurityGroup
+  DatabaseInstance0:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete
+    Properties:
+      AllowMajorVersionUpgrade: false
+      AutoMinorVersionUpgrade: true
+      DBClusterIdentifier: !Ref DatabaseCluster
+      DBInstanceClass: db.t3.small
+      DBSubnetGroupName: !Ref DataSubnetGroup
+      Engine: aurora
+  DatabaseInstance1:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete
+    Properties:
+      AllowMajorVersionUpgrade: false
+      AutoMinorVersionUpgrade: true
+      DBClusterIdentifier: !Ref DatabaseCluster
+      DBInstanceClass: db.t3.small
+      DBSubnetGroupName: !Ref DataSubnetGroup
+      Engine: aurora
+  DataSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: RDS Database Subnet Group for WordPress
+      SubnetIds: !Ref DataSubnets
+
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Amazon RDS cluster
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: !Ref WebSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: sg-011aa3e9edef5b77c
+
+      VpcId:
+        !Ref Vpc
+
+  ElastiCacheSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for ElastiCache cache cluster
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 11211
+          ToPort: 11211
+          SourceSecurityGroupId: !Ref WebSecurityGroup
+      VpcId:
+        !Ref Vpc
+  EfsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for EFS mount targets
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 2049
+          ToPort: 2049
+          SourceSecurityGroupId: !Ref WebSecurityGroup
+  EfsSecurityGroupIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      IpProtocol: tcp
+      FromPort: 2049
+      ToPort: 2049
+      SourceSecurityGroupId: !GetAtt EfsSecurityGroup.GroupId
+      GroupId: !GetAtt EfsSecurityGroup.GroupId
+
+  WebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for web instances
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref PublicAlbSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          SourceSecurityGroupId: !Ref SshSourceGroup
+      VpcId:
+        !Ref Vpc
+
+
+  WebInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+      - !Ref WebInstanceRole
+  WebInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: logs
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            - logs:DescribeLogStreams
+            Resource:
+            - arn:aws:logs:*:*:*
+  WebAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      Cooldown: 600
+      HealthCheckGracePeriod: 1200
+      HealthCheckType: ELB
+      LaunchConfigurationName:
+        !Ref WebLaunchConfiguration
+      MaxSize: 4
+      MinSize: 2
+      TargetGroupARNs:
+        - !Ref PublicAlbTargetGroup
+      VPCZoneIdentifier: !Ref WebSubnets
+    CreationPolicy:
+      ResourceSignal:
+        Count: 2
+        Timeout: PT20M
+  WebLaunchConfiguration:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          deploy_webserver:
+            - install_webserver
+            - build_cacheclient
+            - build_wordpress
+            - build_opcache
+            - install_cacheclient
+            - install_wordpress
+            - install_opcache
+            - start_webserver
+        install_webserver:
+          packages:
+            yum:
+              awslogs: []
+              httpd24: []
+              mysql56: []
+              php73: []
+              php73-devel: []
+              php7-pear: []
+              php73-mysqlnd: []
+          files:
+            /tmp/create_site_conf.sh:
+              content: |
+                #!/bin/bash -xe
+                if [ ! -f /etc/httpd/conf.d/wp.conf ]; then
+                  touch /etc/httpd/conf.d/wp.conf
+                  echo 'ServerName https://127.0.0.1' >> /etc/httpd/conf.d/wp.conf
+                  echo 'DocumentRoot /var/www/wordpress/' >> /etc/httpd/conf.d/wp.conf
+                  echo 'ServerSignature off' >> /etc/httpd/conf.d/wp.conf
+                  echo 'ServerTokens Prod' >> /etc/httpd/conf.d/wp.conf
+                  echo 'Header unset Server' >> /etc/httpd/conf.d/wp.conf
+                  echo '<Directory /var/www/wordpress/blog>' >> /etc/httpd/conf.d/wp.conf
+                  echo '  Options Indexes FollowSymLinks' >> /etc/httpd/conf.d/wp.conf
+                  echo '  AllowOverride All' >> /etc/httpd/conf.d/wp.conf
+                  echo '  Require all granted' >> /etc/httpd/conf.d/wp.conf
+                  echo '</Directory>' >> /etc/httpd/conf.d/wp.conf
+
+                  echo 'expose_php = Off' >> /etc/php-7.3.d/70-disable_poweredby.ini
+                fi
+              mode: 000500
+              owner: root
+              group: root
+          commands:
+            create_site_conf:
+              command: ./create_site_conf.sh
+              cwd: /tmp
+              ignoreErrors: false
+        build_cacheclient:
+          packages:
+            yum:
+              gcc-c++: []
+          files:
+            /tmp/install_cacheclient.sh:
+              content: |
+                #!/bin/bash -xe
+                ln -s /usr/bin/pecl7 /usr/bin/pecl #just so pecl is available easily
+                pecl7 install igbinary
+                wget -P /tmp/ https://elasticache-downloads.s3.amazonaws.com/ClusterClient/PHP-7.3/latest-64bit
+                tar -xf '/tmp/latest-64bit'
+                cp '/tmp/amazon-elasticache-cluster-client.so' /usr/lib64/php/7.3/modules/
+                if [ ! -f /etc/php-7.3.d/50-memcached.ini ]; then
+                    touch /etc/php-7.3.d/50-memcached.ini
+                fi
+                echo 'extension=igbinary.so;' >> /etc/php-7.3.d/50-memcached.ini
+                echo 'extension=/usr/lib64/php/7.3/modules/amazon-elasticache-cluster-client.so;' >> /etc/php-7.3.d/50-memcached.ini
+              mode: 000500
+              owner: root
+              group: root
+        build_opcache:
+          packages:
+            yum:
+              php73-opcache: []
+          files:
+            /tmp/install_opcache.sh:
+              content: |
+                #!/bin/bash -xe
+                # create hidden opcache directory locally & change owner to apache
+                if [ ! -d /var/www/.opcache ]; then
+                    mkdir -p /var/www/.opcache
+                fi
+                # enable opcache in /etc/php-7.3.d/10-opcache.ini
+                sed -i 's/;opcache.file_cache=.*/opcache.file_cache=\/var\/www\/.opcache/' /etc/php-7.3.d/10-opcache.ini
+                sed -i 's/opcache.memory_consumption=.*/opcache.memory_consumption=512/' /etc/php-7.3.d/10-opcache.ini
+                # download opcache-instance.php to verify opcache status
+                if [ ! -f /var/www/wordpress/blog/opcache-instanceid.php ]; then
+                    wget -P /var/www/wordpress/blog/ https://s3.amazonaws.com/aws-refarch/wordpress/latest/bits/opcache-instanceid.php
+                fi
+              mode: 000500
+              owner: root
+              group: root
+        build_wordpress:
+          files:
+            /tmp/install_wordpress.sh:
+              content: !Sub
+                - |
+                  #!/bin/bash -xe
+
+                  # install wp-cli
+                  if [ ! -f /bin/wp/wp-cli.phar ]; then
+                    curl -o /bin/wp https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+                    chmod +x /bin/wp
+                  fi
+
+                  # make site directory
+                  if [ ! -d /var/www/wordpress${WPDirectory} ]; then
+                    mkdir -p /var/www/wordpress${WPDirectory}
+                    cd /var/www/wordpress${WPDirectory}
+                    # install wordpress if not installed
+                    # use public alb host name if wp domain name was empty
+                    if ! $(wp core is-installed --allow-root); then
+                        wp core download --version='${WPVersion}' --locale='en_GB' --allow-root
+                        wp core config --dbname='blog' --dbuser='${DatabaseMasterUsername}' --dbpass='${DatabaseMasterPassword}' --dbhost='${dbAddr}' --dbprefix=wp_ --allow-root
+                        wp core install --url='https://yourdomain.com${WPDirectory}' --title='Blog' --admin_user='${WPAdminUsername}' --admin_password='${WPAdminPassword}' --admin_email='${WPAdminEmail}' --skip-email --allow-root
+                        wp plugin install w3-total-cache --allow-root
+                        sed -i "/$table_prefix = 'wp_';/ a \define('WP_HOME', 'http://' . \$_SERVER['HTTP_HOST'] . '/blog'); " /var/www/wordpress${WPDirectory}/wp-config.php
+                        sed -i "/$table_prefix = 'wp_';/ a \define('WP_SITEURL', 'http://' . \$_SERVER['HTTP_HOST'] . '/blog'); " /var/www/wordpress${WPDirectory}/wp-config.php
+                        sed -i "/$table_prefix = 'wp_';/ a \$_SERVER['HTTPS'] = 'on';" /var/www/wordpress${WPDirectory}/wp-config.php
+                        # set permissions of wordpress site directories
+                        chown -R apache:apache /var/www/wordpress${WPDirectory}
+                        chmod u+wrx /var/www/wordpress${WPDirectory}/wp-content/*
+                        if [ ! -f /var/www/wordpress${WPDirectory}/opcache-instanceid.php ]; then
+                          wget -P /var/www/wordpress${WPDirectory}/ https://s3.amazonaws.com/aws-refarch/wordpress/latest/bits/opcache-instanceid.php
+                        fi
+                    fi
+                    RESULT=$?
+                    if [ $RESULT -eq 0 ]; then
+                        touch /var/www/wordpress${WPDirectory}/wordpress.initialized
+                    else
+                        touch /var/www/wordpress${WPDirectory}/wordpress.failed
+                    fi
+                  fi
+                - dbAddr: !GetAtt DatabaseCluster.Endpoint.Address
+              mode: 000500
+              owner: root
+              group: root
+        install_wordpress:
+          commands:
+            install_wordpress:
+              command: ./install_wordpress.sh
+              cwd: /tmp
+              ignoreErrors: false
+        install_cacheclient:
+          commands:
+            install_cacheclient:
+              command: ./install_cacheclient.sh
+              cwd: /tmp
+              ignoreErrors: false
+        install_opcache:
+          commands:
+            install_opcache:
+              command: ./install_opcache.sh
+              cwd: /tmp
+              ignoreErrors: false
+        start_webserver:
+          services:
+            sysvinit:
+              httpd:
+                enabled: true
+                ensureRunning: true
+    Properties:
+      IamInstanceProfile: !Ref WebInstanceProfile
+      ImageId: ami-00eb20669e0990cb4 # amzn linux 2018.03.0
+      InstanceType: t3.micro
+      KeyName: !Ref EC2KeyName
+      SecurityGroups:
+      - !Ref WebSecurityGroup
+      UserData:
+        "Fn::Base64":
+          !Sub |
+            #!/bin/bash -xe
+            yum update -y
+            mkdir -p /var/www/wordpress
+            mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 ${ElasticFileSystem}.efs.${AWS::Region}.amazonaws.com:/ /var/www/wordpress
+            /opt/aws/bin/cfn-init --configsets deploy_webserver --verbose --stack ${AWS::StackName} --resource WebLaunchConfiguration --region ${AWS::Region}
+            /opt/aws/bin/cfn-signal --exit-code $? --stack ${AWS::StackName} --resource WebAutoScalingGroup --region ${AWS::Region}
+
+Outputs:
+  TargetGroup: !Ref PublicAlbTargetGroup
