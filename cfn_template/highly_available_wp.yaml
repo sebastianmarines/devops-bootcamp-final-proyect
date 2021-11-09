@@ -244,6 +244,13 @@ Resources:
       ToPort: 80
       CidrIp: 0.0.0.0/0
 
+  # Media S3 Bucket
+  MediaBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: "sebastian-media"
+      AccessControl: PublicRead
+
   # EFS
   ElasticFileSystem:
     Type: AWS::EFS::FileSystem
@@ -387,6 +394,7 @@ Resources:
             /usr/local/bin/wp core download --locale=es_ES
             /usr/local/bin/wp config create --dbname=wordpress --dbuser=${RDSMasterUsername} --dbpass=${RDSMasterPassword} --dbhost=${RDS.Endpoint.Address} --dbprefix=wp_ --allow-root
             /usr/local/bin/wp core install --url=${LoadBalancer.DNSName} --title=Blog --admin_user=${WPAdminUsername} --admin_password=${WPAdminPassword} --admin_email=${WPAdminEmail} --allow-root
+            /usr/local/bin/wp plugin install amazon-s3-and-cloudfront --activate --allow-root
             chown -R nginx:nginx /var/www/wordpress
             /usr/bin/find /var/www/wordpress/ -type d -exec chmod 750 {} \;
             /usr/bin/find /var/www/wordpress/ -type f -exec chmod 640 {} \;
