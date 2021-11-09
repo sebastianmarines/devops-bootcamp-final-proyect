@@ -227,6 +227,22 @@ Resources:
       FromPort: 3306
       ToPort: 3306
       SourceSecurityGroupId: !Ref WebSecurityGroup
+  ## Load Balancer Security Group
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: LoadBalancer
+      GroupDescription: Load Balancer access
+      VpcId: !Ref VPC
+  ### Load Balancer Security Group Rules
+  LoadBalancerSecurityGroupIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref LoadBalancerSecurityGroup
+      IpProtocol: tcp
+      FromPort: 80
+      ToPort: 80
+      CidrIp: 0.0.0.0/0
 
   # EFS
   ElasticFileSystem:
@@ -286,6 +302,8 @@ Resources:
         - !Ref PublicSubnetAZ1
         - !Ref PublicSubnetAZ2
         - !Ref PublicSubnetAZ3
+      SecurityGroups:
+        - !Ref LoadBalancerSecurityGroup
   ## Target Group
   TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
@@ -293,11 +311,11 @@ Resources:
       Port: 80
       Protocol: HTTP
       VpcId: !Ref VPC
-      HealthCheckIntervalSeconds: 30
+      HealthCheckIntervalSeconds: 60
       HealthCheckPath: /
-      HealthCheckTimeoutSeconds: 5
+      HealthCheckTimeoutSeconds: 10
       Matcher:
-        HttpCode: "200,301,404"
+        HttpCode: "200"
   ## Listener
   Listener:
     Type: AWS::ElasticLoadBalancingV2::Listener
@@ -325,10 +343,10 @@ Resources:
         - !Ref PublicSubnetAZ1
         - !Ref PublicSubnetAZ2
         - !Ref PublicSubnetAZ3
-    CreationPolicy:
-      ResourceSignal:
-        Count: 1
-        Timeout: PT15M
+    # CreationPolicy:
+    #   ResourceSignal:
+    #     Count: 1
+    #     Timeout: PT15M
   LaunchConfiguration:
     Type: AWS::AutoScaling::LaunchConfiguration
     Metadata:
