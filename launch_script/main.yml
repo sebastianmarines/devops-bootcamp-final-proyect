@@ -75,3 +75,25 @@
       service:
         state: restarted
         name: nginx.service
+    # Install CloudWatch agent
+    - name: "Download cloudwatch installer"
+      get_url:
+        url: "https://s3.amazonaws.com/amazoncloudwatch-agent/centos/amd64/latest/amazon-cloudwatch-agent.rpm"
+        dest: "/tmp/amazon-cloudwatch-agent.rpm"
+    - name: "Install cloudwatch agent"
+      raw: "rpm -Uvh /tmp/amazon-cloudwatch-agent.rpm"
+    - name: "Copy cloudwatch configuration"
+      copy:
+        src: "files/cwagent.json"
+        dest: /etc/amazon-cloudwatch-agent.json
+    - name: "Install collectd"
+      yum:
+        name: collectd
+        state: latest
+    - name: "Start cloudwatch"
+      command: "sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/etc/amazon-cloudwatch-agent.json"
+    - name: "Activate cloudwatch agent"
+      service:
+        state: started
+        enabled: yes
+        name: amazon-cloudwatch-agent
