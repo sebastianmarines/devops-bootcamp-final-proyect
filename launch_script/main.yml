@@ -28,6 +28,10 @@
       dnf:
         name: php-json
         state: present
+    - name: Install mysql client
+      dnf:
+        name: mysql
+        state: present
     # LEMP services activation
     - name: "Activate php-fpm"
       service:
@@ -60,12 +64,17 @@
       file:
         state: absent
         path: /usr/share/nginx/html/
+    # Configure SELINUX
+    - name: Configure SELINUX
+      selinux:
+        policy: targeted
+        state: permissive
     # Secure LEMP
     - name: Deactivate PHP functions
       lineinfile:
         path: /etc/php.ini
         regexp: "^disable_functions"
-        line: "disable_functions =exec,eval,phpinfo,passthru,shell_exec,system,proc_open,popen,curl_exec,curl_multi_exec,parse_ini_file,show_source"
+        line: "disable_functions =exec,eval,phpinfo,passthru,shell_exec,system,popen,curl_exec,curl_multi_exec,parse_ini_file,show_source"
     # LEMP services activation
     - name: "Restart php-fpm"
       service:
@@ -97,3 +106,14 @@
         state: started
         enabled: yes
         name: amazon-cloudwatch-agent
+    # Create wordpress directory
+    - name: Create wordpress directory
+      file:
+        state: directory
+        path: /var/www/wordpress
+    # Download WP-CLI
+    - name: Download wp-cli
+      get_url:
+        url: https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+        dest: /usr/local/bin/wp
+        mode: 0755
